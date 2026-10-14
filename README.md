@@ -1,74 +1,112 @@
-# GitHub Repository Analytics Dashboard
+# GitHub Repository Dashboard
 
-A full-stack app to search public GitHub repositories, look at their details
-(latest commits, top contributors, open issues) and save favourites.
+Search public GitHub repositories, inspect repository activity, and save repositories to a favourites list.
 
-**Stack:** React (Vite) + Tailwind CSS, Node.js + Express, MongoDB (Mongoose), GitHub REST API.
+## Features
 
-## Setup
+- Search repositories by keyword and sort by stars or recent updates.
+- Browse paginated results; search, sort, and page are reflected in the URL.
+- View repository statistics, open issues, recent commits, and top contributors.
+- Save and remove favourites, persisted in MongoDB.
+- Handle empty results, GitHub API errors, and rate limits with clear UI states.
 
-You need Node 18+ and a MongoDB instance (local or Atlas).
+## Tech Stack
+
+- Frontend: React, React Router, Vite, and Tailwind CSS
+- Backend: Node.js and Express
+- Database: MongoDB with Mongoose
+- Repository data: GitHub REST API
+
+## Requirements
+
+- Node.js 18 or newer
+- MongoDB running locally or a MongoDB Atlas connection string
+
+## Run Locally
+
+### 1. Configure the server
+
+In a terminal at the project root:
 
 ```bash
-# From the project root, start the backend in terminal 1
 cd server
 npm install
 ```
 
-Copy `server/.env.example` to `server/.env` and set `MONGO_URI` to your MongoDB connection string. In PowerShell, run `Copy-Item .env.example .env` from the `server` directory. `GITHUB_TOKEN` is optional but recommended to increase GitHub API limits.
+Create `server/.env` with your MongoDB connection string:
 
-```bash
-npm run dev              # http://localhost:5000
+```dotenv
+PORT=5000
+MONGO_URI=mongodb://127.0.0.1:27017/github_dashboard
+GITHUB_TOKEN=
+CLIENT_URL=http://localhost:5173
 ```
 
+`MONGO_URI` is required. `GITHUB_TOKEN` is optional; setting a GitHub personal access token increases the API rate limit available to the server. Keep the token private and do not commit `.env`.
+
+Start the backend:
+
 ```bash
-# From the project root, start the frontend in terminal 2
+npm run dev
+```
+
+The API listens on `http://localhost:5000` after it connects to MongoDB.
+
+### 2. Start the client
+
+Open a second terminal at the project root:
+
+```bash
 cd client
 npm install
-npm run dev              # http://localhost:5173
+npm run dev
 ```
 
-The Vite dev server proxies `/api` to the backend, so no extra frontend config is needed.
+Open `http://localhost:5173`. Vite forwards `/api` requests to the backend at `http://localhost:5000`.
 
-To run backend tests, open a terminal in `server` and run `npm test`.
+## Environment Variables
 
-### Environment variables (`server/.env`)
-
-| Name           | Purpose                                                                 |
-| -------------- | ----------------------------------------------------------------------- |
-| `PORT`         | Port for the Express server (default 5000)                              |
-| `MONGO_URI`    | MongoDB connection string                                               |
-| `GITHUB_TOKEN` | Optional GitHub token. Raises the rate limit from 60 to 5000 requests/hour |
-| `CLIENT_URL`   | Allowed CORS origin for the frontend                                    |
+| Variable | Required | Description |
+| --- | --- | --- |
+| `MONGO_URI` | Yes | MongoDB connection string. |
+| `PORT` | No | Backend port; defaults to `5000`. |
+| `GITHUB_TOKEN` | No | GitHub token used by the backend for authenticated API requests. |
+| `CLIENT_URL` | No | Frontend origin allowed by CORS; defaults to `http://localhost:5173`. |
 
 ## API
 
-| Method | Route                              | Description                                   |
-| ------ | ---------------------------------- | --------------------------------------------- |
-| GET    | `/api/repos/search?q=&sort=&page=` | Search repos. `sort` is `stars` or `updated`  |
-| GET    | `/api/repos/:owner/:name`          | Repo info, latest 5 commits, top 5 contributors |
-| GET    | `/api/favourites`                  | List saved repos                              |
-| POST   | `/api/favourites`                  | Save a repo (409 if already saved)            |
-| DELETE | `/api/favourites/:repoId`          | Remove a saved repo                           |
+All endpoints are served by the backend under `/api`.
 
-## How the required edge cases are handled
+| Method | Endpoint | Description |
+| --- | --- | --- |
+| `GET` | `/api/health` | Health check; returns `{ "status": "ok" }`. |
+| `GET` | `/api/repos/search?q=react&sort=stars&page=1` | Search repositories. `q` is required; `sort` can be `stars` or `updated`; `page` defaults to `1`. |
+| `GET` | `/api/repos/:owner/:name` | Repository details, including recent commits and top contributors. |
+| `GET` | `/api/favourites` | List saved repositories. |
+| `POST` | `/api/favourites` | Save a repository; returns `409` if it is already saved. |
+| `DELETE` | `/api/favourites/:repoId` | Remove a saved repository. |
 
-1. **GitHub error / unavailable** - the GitHub service maps API errors and network failures to clean 4xx/5xx responses, and the UI shows a retry action.
-2. **Invalid, deleted, or renamed repository** - GitHub's 404 becomes a 404 from our API; renamed repositories use GitHub's canonical owner and name for follow-up requests.
-3. **Empty search results** - the UI shows a "no repositories found" state instead of a blank page.
-4. **Duplicate saves** - a unique index on `repoId` in MongoDB guarantees no duplicates; the API returns 409 and the frontend re-syncs.
-5. **Rate limits** - exhausted primary and secondary limits become a 429 with a readable message. When GitHub supplies retry timing, the API returns it and the UI displays it.
+Search returns 10 repositories per page. GitHub search only exposes up to 1,000 results per query. Search results are cached in memory for five minutes.
 
-Other notes:
+## Tests and Build
 
-- Search results are cached in memory for 5 minutes (`server/src/utils/cache.js`).
-- The GitHub token only lives in the server environment, and all GitHub calls go through the backend.
-- Search state (query, sort, page) is kept in the URL, so refreshing keeps your results.
-- GitHub only returns the first 1000 search results, so pagination stops there.
-- Open issue totals use GitHub's issue search qualifier, which excludes pull requests.
+Run the backend tests:
 
-## Known limitations / what I would do next
+```bash
+cd server
+npm test
+```
 
-- There is no user login, so saved repositories are shared by everyone using the app. Adding auth would mean a `userId` on the favourite and a compound unique index.
-- The cache is in memory, so it resets on restart. Redis would be the next step for multiple instances.
-- Backend tests cover GitHub rate-limit/error mapping. Favourite persistence relies on MongoDB's unique `repoId` index to prevent duplicates.
+Build the frontend for production:
+
+```bash
+cd client
+npm run build
+```
+
+## Notes and Limitations
+
+- There is no user authentication; favourites are shared by all users of the same deployment.
+- The search cache is in memory and is cleared when the server restarts.
+- GitHub API rate limits apply. Authenticated limits depend on the token and GitHub's current policy.
+- Backend tests currently focus on GitHub API error and rate-limit handling.
