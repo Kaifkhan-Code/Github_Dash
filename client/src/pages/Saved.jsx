@@ -6,8 +6,7 @@ import { Spinner, ErrorBox } from '../components/Status.jsx';
 export default function Saved() {
   const { favourites, loading, error, remove } = useFavourites();
 
-  // The card's button toggles, and on this page everything is saved,
-  // so clicking it always removes the repo.
+
   const handleToggle = (repo) => remove(repo.repoId);
 
   return (

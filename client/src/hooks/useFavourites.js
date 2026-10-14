@@ -29,7 +29,7 @@ export default function useFavourites() {
       setFavourites((prev) => [saved, ...prev]);
       setError('');
     } catch (err) {
-      // 409 means it was already saved (maybe from another tab), so just resync.
+      
       if (err.status === 409) return load();
       setError(err.message);
     }

@@ -7,8 +7,7 @@ import Pagination from '../components/Pagination.jsx';
 import { Spinner, ErrorBox } from '../components/Status.jsx';
 
 export default function Search() {
-  // The search state lives in the URL, so refreshing or sharing the
-  // link keeps the same results.
+
   const [params, setParams] = useSearchParams();
   const q = params.get('q') || '';
   const sort = params.get('sort') || 'stars';
@@ -46,7 +45,7 @@ export default function Search() {
         if (!controller.signal.aborted) setLoading(false);
       });
 
-    // If the params change before the request finishes, cancel it.
+    
     return () => controller.abort();
   }, [q, sort, page, retryCount]);
 

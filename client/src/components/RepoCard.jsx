@@ -1,8 +1,7 @@
 import { Link } from 'react-router-dom';
 import { formatCount } from '../utils/format.js';
 
-// Works for both search results and saved favourites, since the saved
-// documents keep the same fields (owner, name, stars, ...).
+
 export default function RepoCard({ repo, saved, onToggle }) {
   return (
     <div className="bg-white border rounded-lg p-4 flex justify-between gap-4">

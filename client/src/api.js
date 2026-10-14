@@ -1,5 +1,4 @@
-// Every call to the backend goes through this one helper so errors
-// are handled the same way everywhere.
+
 async function request(path, options = {}) {
   let res;
   try {
