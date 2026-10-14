@@ -63,6 +63,19 @@ npm run dev
 
 Open `http://localhost:5173`. Vite forwards `/api` requests to the backend at `http://localhost:5000`.
 
+## Deploy to Vercel
+
+Deploy the frontend and backend as two Vercel projects from the same Git repository. This keeps the Vite site static and runs Express as a Vercel Function.
+
+1. Import the repository in Vercel and set the first project's **Root Directory** to `client`. Vercel should detect Vite and use `npm run build` with `dist` as the output directory.
+2. Add `VITE_API_URL` to the client project's environment variables. Set it to the deployed backend URL followed by `/api`, for example `https://your-api.vercel.app/api`. This value is included at build time, so redeploy the client after changing it.
+3. Import the same repository again as a second Vercel project and set its **Root Directory** to `server`. Vercel detects the Express app exported from `src/app.js`.
+4. Add the backend environment variables in the server project's Vercel settings: `MONGO_URI`, `CLIENT_URL`, and optionally `GITHUB_TOKEN`. Set `CLIENT_URL` to the frontend's origin, such as `https://your-dashboard.vercel.app` (without a path). `PORT` is not needed on Vercel.
+5. Ensure your MongoDB provider accepts connections from Vercel. Serverless outbound IPs may vary; use a fixed-egress option if available, or configure the database network access accordingly and use a strong database password.
+6. Redeploy both projects, then check `https://your-api.vercel.app/api/health` and open the frontend deployment.
+
+The backend currently allows one exact CORS origin through `CLIENT_URL`. For frontend preview deployments, configure the backend to allow the preview origin or test against the production frontend URL.
+
 ## Environment Variables
 
 | Variable | Required | Description |
