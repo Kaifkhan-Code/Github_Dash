@@ -4,7 +4,7 @@ import ApiError from '../utils/ApiError.js';
 
 const router = Router();
 
-// GET /api/favourites
+
 router.get('/', async (req, res, next) => {
   try {
     const favourites = await Favourite.find().sort({ createdAt: -1 });
@@ -14,7 +14,7 @@ router.get('/', async (req, res, next) => {
   }
 });
 
-// POST /api/favourites
+
 router.post('/', async (req, res, next) => {
   try {
     const { repoId, fullName, owner, name, description, stars, forks, language, htmlUrl } = req.body;
@@ -36,7 +36,6 @@ router.post('/', async (req, res, next) => {
   }
 });
 
-// DELETE /api/favourites/:repoId
 router.delete('/:repoId', async (req, res, next) => {
   try {
     const repoId = Number(req.params.repoId);

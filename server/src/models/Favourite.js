@@ -2,8 +2,7 @@ import mongoose from 'mongoose';
 
 const favouriteSchema = new mongoose.Schema(
   {
-    // GitHub's own repo id. The unique index is what actually stops
-    // duplicates, even if two requests arrive at the same moment.
+
     repoId: { type: Number, required: true, unique: true },
     fullName: { type: String, required: true },
     owner: { type: String, required: true },

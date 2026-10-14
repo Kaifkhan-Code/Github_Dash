@@ -10,7 +10,7 @@ const client = axios.create({
   },
 });
 
-// Read the token on every request so it does not matter when dotenv runs.
+
 client.interceptors.request.use((config) => {
   if (process.env.GITHUB_TOKEN) {
     config.headers.Authorization = `Bearer ${process.env.GITHUB_TOKEN}`;
@@ -18,8 +18,7 @@ client.interceptors.request.use((config) => {
   return config;
 });
 
-// Turn whatever axios throws into an ApiError with a message that
-// makes sense to show in the UI.
+
 export function toApiError(err) {
   if (err.response) {
     const { status, headers } = err.response;
@@ -62,7 +61,7 @@ export function toApiError(err) {
     return new ApiError(502, 'GitHub returned an unexpected error. Please try again later.');
   }
 
-  // No response at all: timeout, DNS failure, GitHub down, etc.
+ 
   return new ApiError(503, 'Could not reach GitHub right now. Please try again later.');
 }
 
@@ -75,8 +74,7 @@ async function get(url, params) {
   }
 }
 
-// Commits and contributors come back as 409 / 204 for empty repositories.
-// That is not a failure for us, there is just nothing to show.
+
 async function getList(url, params) {
   try {
     const { data, status } = await client.get(url, { params });
@@ -127,8 +125,7 @@ export async function searchRepositories({ q, sort, page, perPage }) {
 }
 
 export async function getRepositoryDetails(owner, name) {
-  // Fetch the repo first: if it does not exist there is no point
-  // asking for its commits and contributors.
+
   const repo = await get(`/repos/${owner}/${name}`);
   const repositoryPath = `/repos/${repo.owner.login}/${repo.name}`;
 

@@ -6,10 +6,10 @@ import { searchRepositories, getRepositoryDetails } from '../services/github.js'
 const router = Router();
 
 const PER_PAGE = 10;
-const GITHUB_SEARCH_LIMIT = 1000; // GitHub never returns more than 1000 search results
+const GITHUB_SEARCH_LIMIT = 1000; 
 const NAME_PATTERN = /^[A-Za-z0-9._-]{1,100}$/;
 
-// GET /api/repos/search?q=react&sort=stars&page=1
+
 router.get('/search', async (req, res, next) => {
   try {
     const q = String(req.query.q || '').trim();
