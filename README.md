@@ -38,7 +38,6 @@ Create `server/.env` with your MongoDB connection string:
 ```dotenv
 PORT=5000
 MONGO_URI=mongodb://127.0.0.1:27017/github_dashboard
-GITHUB_TOKEN=
 CLIENT_URL=http://localhost:5173
 ```
 
