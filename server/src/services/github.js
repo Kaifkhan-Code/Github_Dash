@@ -1,0 +1,142 @@
+import axios from 'axios';
+import ApiError from '../utils/ApiError.js';
+
+const client = axios.create({
+  baseURL: 'https://api.github.com',
+  timeout: 10000,
+  headers: {
+    Accept: 'application/vnd.github+json',
+    'X-GitHub-Api-Version': '2022-11-28',
+  },
+});
+
+// Read the token on every request so it does not matter when dotenv runs.
+client.interceptors.request.use((config) => {
+  if (process.env.GITHUB_TOKEN) {
+    config.headers.Authorization = `Bearer ${process.env.GITHUB_TOKEN}`;
+  }
+  return config;
+});
+
+// Turn whatever axios throws into an ApiError with a message that
+// makes sense to show in the UI.
+function toApiError(err) {
+  if (err.response) {
+    const { status, headers } = err.response;
+    const rateLimited =
+      (status === 403 || status === 429) &&
+      (headers['x-ratelimit-remaining'] === '0' || headers['retry-after']);
+
+    if (rateLimited) {
+      const reset = Number(headers['x-ratelimit-reset']);
+      return new ApiError(
+        429,
+        'GitHub rate limit reached. Please wait a bit and try again.',
+        reset ? { retryAt: new Date(reset * 1000).toISOString() } : {}
+      );
+    }
+    if (status === 404 || status === 451) {
+      return new ApiError(404, 'Repository not found. It may have been deleted or made private.');
+    }
+    if (status === 422) {
+      return new ApiError(400, 'GitHub could not process this search. Try a different keyword or an earlier page.');
+    }
+    if (status === 401) {
+      return new ApiError(502, 'The GitHub token on the server is invalid.');
+    }
+    return new ApiError(502, 'GitHub returned an unexpected error. Please try again later.');
+  }
+
+  // No response at all: timeout, DNS failure, GitHub down, etc.
+  return new ApiError(503, 'Could not reach GitHub right now. Please try again later.');
+}
+
+async function get(url, params) {
+  try {
+    const { data } = await client.get(url, { params });
+    return data;
+  } catch (err) {
+    throw toApiError(err);
+  }
+}
+
+// Commits and contributors come back as 409 / 204 for empty repositories.
+// That is not a failure for us, there is just nothing to show.
+async function getList(url, params) {
+  try {
+    const { data, status } = await client.get(url, { params });
+    return status === 200 && Array.isArray(data) ? data : [];
+  } catch (err) {
+    if (err.response?.status === 409) return [];
+    throw toApiError(err);
+  }
+}
+
+function formatRepo(r) {
+  return {
+    id: r.id,
+    name: r.name,
+    fullName: r.full_name,
+    owner: r.owner.login,
+    ownerAvatar: r.owner.avatar_url,
+    description: r.description,
+    stars: r.stargazers_count,
+    forks: r.forks_count,
+    language: r.language,
+    url: r.html_url,
+    updatedAt: r.updated_at,
+  };
+}
+
+export async function searchRepositories({ q, sort, page, perPage }) {
+  const data = await get('/search/repositories', {
+    q,
+    sort,
+    order: 'desc',
+    page,
+    per_page: perPage,
+  });
+
+  return {
+    totalCount: data.total_count,
+    items: data.items.map(formatRepo),
+  };
+}
+
+export async function getRepositoryDetails(owner, name) {
+  // Fetch the repo first: if it does not exist there is no point
+  // asking for its commits and contributors.
+  const repo = await get(`/repos/${owner}/${name}`);
+
+  const [commits, contributors] = await Promise.all([
+    getList(`/repos/${owner}/${name}/commits`, { per_page: 5 }),
+    getList(`/repos/${owner}/${name}/contributors`, { per_page: 5 }),
+  ]);
+
+  return {
+    repo: {
+      ...formatRepo(repo),
+      watchers: repo.subscribers_count ?? repo.watchers_count,
+      homepage: repo.homepage,
+      topics: repo.topics || [],
+      license: repo.license?.name || null,
+      defaultBranch: repo.default_branch,
+      createdAt: repo.created_at,
+      // GitHub counts open pull requests in this number as well.
+      openIssues: repo.open_issues_count,
+    },
+    commits: commits.map((c) => ({
+      sha: c.sha,
+      message: c.commit.message.split('\n')[0],
+      author: c.commit.author?.name || c.author?.login || 'Unknown',
+      date: c.commit.author?.date,
+      url: c.html_url,
+    })),
+    contributors: contributors.map((c) => ({
+      login: c.login,
+      avatar: c.avatar_url,
+      contributions: c.contributions,
+      url: c.html_url,
+    })),
+  };
+}
