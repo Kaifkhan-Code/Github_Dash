@@ -20,19 +20,34 @@ client.interceptors.request.use((config) => {
 
 // Turn whatever axios throws into an ApiError with a message that
 // makes sense to show in the UI.
-function toApiError(err) {
+export function toApiError(err) {
   if (err.response) {
     const { status, headers } = err.response;
+    const message = String(err.response.data?.message || '');
     const rateLimited =
-      (status === 403 || status === 429) &&
-      (headers['x-ratelimit-remaining'] === '0' || headers['retry-after']);
+      status === 429 ||
+      (status === 403 && (
+        headers['x-ratelimit-remaining'] === '0' ||
+        headers['retry-after'] ||
+        /rate limit/i.test(message)
+      ));
 
     if (rateLimited) {
       const reset = Number(headers['x-ratelimit-reset']);
+      let retryAt;
+      if (Number.isFinite(reset) && reset > 0) {
+        retryAt = new Date(reset * 1000).toISOString();
+      } else if (headers['retry-after']) {
+        const delay = Number(headers['retry-after']);
+        const retryTime = Number.isFinite(delay)
+          ? Date.now() + delay * 1000
+          : Date.parse(headers['retry-after']);
+        if (Number.isFinite(retryTime)) retryAt = new Date(retryTime).toISOString();
+      }
       return new ApiError(
         429,
         'GitHub rate limit reached. Please wait a bit and try again.',
-        reset ? { retryAt: new Date(reset * 1000).toISOString() } : {}
+        retryAt ? { retryAt } : {}
       );
     }
     if (status === 404 || status === 451) {
@@ -72,6 +87,14 @@ async function getList(url, params) {
   }
 }
 
+async function getOpenIssueCount(owner, name) {
+  const data = await get('/search/issues', {
+    q: `repo:${owner}/${name} is:issue is:open`,
+    per_page: 1,
+  });
+  return data.total_count;
+}
+
 function formatRepo(r) {
   return {
     id: r.id,
@@ -107,10 +130,12 @@ export async function getRepositoryDetails(owner, name) {
   // Fetch the repo first: if it does not exist there is no point
   // asking for its commits and contributors.
   const repo = await get(`/repos/${owner}/${name}`);
+  const repositoryPath = `/repos/${repo.owner.login}/${repo.name}`;
 
-  const [commits, contributors] = await Promise.all([
-    getList(`/repos/${owner}/${name}/commits`, { per_page: 5 }),
-    getList(`/repos/${owner}/${name}/contributors`, { per_page: 5 }),
+  const [commits, contributors, openIssues] = await Promise.all([
+    getList(`${repositoryPath}/commits`, { per_page: 5 }),
+    getList(`${repositoryPath}/contributors`, { per_page: 5 }),
+    getOpenIssueCount(repo.owner.login, repo.name),
   ]);
 
   return {
@@ -122,8 +147,7 @@ export async function getRepositoryDetails(owner, name) {
       license: repo.license?.name || null,
       defaultBranch: repo.default_branch,
       createdAt: repo.created_at,
-      // GitHub counts open pull requests in this number as well.
-      openIssues: repo.open_issues_count,
+      openIssues,
     },
     commits: commits.map((c) => ({
       sha: c.sha,

@@ -20,32 +20,42 @@ export default function RepoDetails() {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [retryAt, setRetryAt] = useState('');
+  const [retryCount, setRetryCount] = useState(0);
   const favs = useFavourites();
 
   useEffect(() => {
     const controller = new AbortController();
     setLoading(true);
     setError('');
+    setRetryAt('');
     setData(null);
 
     getRepo(owner, name, controller.signal)
       .then(setData)
       .catch((err) => {
-        if (err.name !== 'AbortError') setError(err.message);
+        if (err.name !== 'AbortError') {
+          setError(err.message);
+          setRetryAt(err.retryAt || '');
+        }
       })
       .finally(() => {
         if (!controller.signal.aborted) setLoading(false);
       });
 
     return () => controller.abort();
-  }, [owner, name]);
+  }, [owner, name, retryCount]);
 
   if (loading) return <Spinner label="Loading repository..." />;
 
   if (error) {
     return (
       <div>
-        <ErrorBox message={error} />
+        <ErrorBox
+          message={error}
+          retryAt={retryAt}
+          onRetry={() => setRetryCount((count) => count + 1)}
+        />
         <Link to="/" className="text-blue-600 underline">
           Back to search
         </Link>
@@ -101,9 +111,6 @@ export default function RepoDetails() {
           <a href={repo.url} target="_blank" rel="noreferrer" className="text-blue-600 underline">
             View on GitHub
           </a>
-        </p>
-        <p className="text-xs text-slate-400 mt-1">
-          Open issues includes open pull requests, as reported by GitHub.
         </p>
       </section>
 

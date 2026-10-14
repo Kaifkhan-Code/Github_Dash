@@ -17,6 +17,7 @@ async function request(path, options = {}) {
   if (!res.ok) {
     const error = new Error(body?.message || 'Something went wrong.');
     error.status = res.status;
+    error.retryAt = body?.retryAt;
     throw error;
   }
   return body;

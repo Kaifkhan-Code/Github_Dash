@@ -18,6 +18,7 @@ export default function Search() {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [retryAt, setRetryAt] = useState('');
   const [retryCount, setRetryCount] = useState(0);
 
   const favs = useFavourites();
@@ -31,6 +32,7 @@ export default function Search() {
     const controller = new AbortController();
     setLoading(true);
     setError('');
+    setRetryAt('');
 
     searchRepos({ q, sort, page }, controller.signal)
       .then(setData)
@@ -38,6 +40,7 @@ export default function Search() {
         if (err.name === 'AbortError') return;
         setData(null);
         setError(err.message);
+        setRetryAt(err.retryAt || '');
       })
       .finally(() => {
         if (!controller.signal.aborted) setLoading(false);
@@ -79,7 +82,13 @@ export default function Search() {
       </form>
 
       {favs.error && <ErrorBox message={favs.error} />}
-      {error && <ErrorBox message={error} onRetry={() => setRetryCount((c) => c + 1)} />}
+      {error && (
+        <ErrorBox
+          message={error}
+          retryAt={retryAt}
+          onRetry={() => setRetryCount((c) => c + 1)}
+        />
+      )}
       {loading && <Spinner label="Searching GitHub..." />}
 
       {!loading && !q && (
